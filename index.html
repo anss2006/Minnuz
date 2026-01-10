@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Happy 18th Minnuz ❤️</title>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500&display=swap');
+
+body{
+  margin:0;
+  font-family:'Poppins',sans-serif;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,105,180,.15), transparent 40%),
+    radial-gradient(circle at 80% 30%, rgba(255,182,193,.15), transparent 40%),
+    linear-gradient(135deg,#0f0f0f,#1c1c1c);
+  color:#eee;
+  overflow-x:hidden;
+}
+
+/* CENTER CONTENT */
+.wrapper{
+  max-width:820px;
+  margin:80px auto;
+  padding:0 26px;
+  text-align:center;
+  position:relative;
+  z-index:2;
+}
+
+/* LOCK SCREEN */
+.lock{
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+.lock-box{
+  text-align:center;
+}
+
+.lock-box input{
+  padding:12px;
+  width:240px;
+  border-radius:10px;
+  border:none;
+  font-size:15px;
+}
+
+.lock-box button{
+  margin-top:14px;
+  padding:12px 26px;
+  border:none;
+  border-radius:10px;
+  background:#ff5fa2;
+  color:#fff;
+  font-size:15px;
+}
+
+/* TITLE */
+h1{
+  font-weight:500;
+  font-size:30px;
+  background:linear-gradient(90deg,#ff5fa2,#ff9acb);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  margin-bottom:8px;
+  animation:heartbeat 2.8s infinite;
+}
+
+@keyframes heartbeat{
+  0%,100%{
+    transform:scale(1);
+    text-shadow:0 0 8px rgba(255,105,180,.4);
+  }
+  50%{
+    transform:scale(1.03);
+    text-shadow:0 0 16px rgba(255,105,180,.7);
+  }
+}
+
+h2{
+  font-weight:300;
+  font-size:14px;
+  color:#bbb;
+  letter-spacing:.6px;
+  margin-bottom:36px;
+}
+
+/* TEXT */
+p{
+  font-size:16px;
+  line-height:2;
+  margin:26px 0;
+}
+
+/* DIVIDER */
+.divider{
+  margin:36px 0;
+  font-size:22px;
+  opacity:.8;
+}
+
+.footer{
+  margin-top:40px;
+  font-size:13px;
+  color:#aaa;
+}
+
+/* FALLING HEARTS */
+.heart{
+  position:fixed;
+  top:-10px;
+  font-size:14px;
+  opacity:.6;
+  animation:fall linear forwards;
+  z-index:1;
+  pointer-events:none;
+}
+
+@keyframes fall{
+  to{
+    transform:translateY(110vh) translateX(40px);
+    opacity:0;
+  }
+}
+
+/* CLICK HEART */
+.tap-heart{
+  position:fixed;
+  font-size:22px;
+  animation:pop 1s ease forwards;
+  pointer-events:none;
+  z-index:3;
+}
+
+@keyframes pop{
+  0%{transform:scale(0.3);opacity:1;}
+  70%{transform:scale(1.3);opacity:1;}
+  100%{transform:scale(0);opacity:0;}
+}
+
+.hidden{display:none;}
+</style>
+</head>
+
+<body>
+
+<!-- LOCK SCREEN -->
+<div class="lock" id="lock">
+  <div class="lock-box">
+    <h1>For Minnuz 🤍</h1>
+    <p>Only you.</p>
+    <input type="password" id="password" placeholder="Enter password">
+    <br>
+    <button onclick="unlock()">Enter</button>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="wrapper hidden" id="content">
+
+  <h1>Happy 18th, Minnuz ❤️✨</h1>
+  <h2>for the one who means everything to me</h2>
+
+  <p>I honestly don’t know how to explain how much you mean to me, my love. We’ve been together for almost four years, and even now just hearing your name can make my day better 🫶</p>
+
+  <p>You’re soft but bold, funny but shy, mature but also chaotic — and I love every bit of that about you. I love how passionate you get about the things you care about, how music and art are such a big part of you 🎶🎨, and how I can just sit there and listen to you talk about literally anything.</p>
+
+  <p>And that dimple of yours… yeah jaan, it still gets me every single time 🥹❤️</p>
+
+  <p>I’m really proud of you, baby, and the person you’re becoming. I’m so grateful I get to be by your side as you step into this new phase of life 🌸 I hope 18 brings you happiness, peace, and everything you truly deserve ✨</p>
+
+  <div class="divider">🤍</div>
+
+  <p>Always here for you, always 🤍</p>
+
+  <div class="footer">— With love your Nandhu </div>
+</div>
+
+<!-- BACKGROUND MUSIC -->
+<audio id="bgMusic" loop>
+  <source src="song.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+/* ========= PASSWORD + MUSIC ========= */
+const correctPassword = "210508";
+let musicStarted = false;
+let audioCtx, analyser, dataArray;
+
+function unlock(){
+  if(document.getElementById("password").value === correctPassword){
+    document.getElementById("lock").classList.add("hidden");
+    document.getElementById("content").classList.remove("hidden");
+    startMusic();
+  } else {
+    alert("Wrong password 😅");
+  }
+}
+
+function startMusic(){
+  if(musicStarted) return;
+
+  const audio = document.getElementById("bgMusic");
+  audio.play();
+  musicStarted = true;
+
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const source = audioCtx.createMediaElementSource(audio);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+
+  source.connect(analyser);
+  analyser.connect(audioCtx.destination);
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+}
+
+/* ========= MUSIC ENERGY ========= */
+function getEnergy(){
+  if(!analyser) return 0;
+  analyser.getByteFrequencyData(dataArray);
+  let sum = 0;
+  for(let i=0;i<dataArray.length;i++) sum += dataArray[i];
+  return sum / dataArray.length;
+}
+
+/* ========= SCROLL SPEED DETECTION ========= */
+let lastScrollY = window.scrollY;
+let scrollSpeed = 0;
+
+window.addEventListener("scroll",()=>{
+  const currentY = window.scrollY;
+  scrollSpeed = Math.abs(currentY - lastScrollY);
+  lastScrollY = currentY;
+});
+
+/* ========= HEART ENGINE ========= */
+let lastHeartTime = 0;
+
+function spawnHeart(){
+  const energy = getEnergy();
+  const hue = Math.min(350, 300 + energy);
+  const glow = Math.min(25, energy / 8);
+
+  const h = document.createElement("div");
+  h.className = "heart";
+  h.innerHTML = Math.random() > 0.5 ? "🤍" : "💕";
+  h.style.left = Math.random() * 100 + "vw";
+
+  const speedFactor = Math.min(3, scrollSpeed / 20);
+  const duration = 9 - speedFactor * 2; // slower when calm
+  h.style.animationDuration = duration + "s";
+  h.style.fontSize = (12 + Math.random() * 14) + "px";
+  h.style.color = `hsl(${hue}, 80%, 65%)`;
+  h.style.textShadow = `0 0 ${glow}px hsl(${hue}, 80%, 65%)`;
+
+  document.body.appendChild(h);
+  setTimeout(()=>h.remove(), duration * 1000);
+}
+
+/* ========= HEART LOOP (OPTIMIZED) ========= */
+function heartLoop(timestamp){
+  if(timestamp - lastHeartTime > 500){
+    spawnHeart();
+    lastHeartTime = timestamp;
+  }
+  requestAnimationFrame(heartLoop);
+}
+requestAnimationFrame(heartLoop);
+
+/* ========= TAP HEART ========= */
+document.addEventListener("click",e=>{
+  const energy = getEnergy();
+  const hue = Math.min(350, 300 + energy);
+  const glow = Math.min(30, energy / 6);
+
+  const heart = document.createElement("div");
+  heart.className = "tap-heart";
+  heart.innerHTML = "❤️";
+  heart.style.left = e.clientX + "px";
+  heart.style.top = e.clientY + "px";
+  heart.style.color = `hsl(${hue}, 85%, 65%)`;
+  heart.style.textShadow = `0 0 ${glow}px hsl(${hue}, 85%, 65%)`;
+
+  document.body.appendChild(heart);
+  setTimeout(()=>heart.remove(),1000);
+});
+</script>
+</body>
+</html>
