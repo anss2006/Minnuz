@@ -205,6 +205,7 @@ function startMusic(){
   if(musicStarted) return;
 
   const audio = document.getElementById("bgMusic");
+  audio.volume = 0.6;
   audio.play();
   musicStarted = true;
 
