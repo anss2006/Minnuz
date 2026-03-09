@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#030208"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<title>Happy Birthday, Minnuz 🌹</title>
+<title>Happy Birthday, Minnuze 🌹</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Great+Vibes&family=Jost:wght@300;400;500&display=swap" rel="stylesheet"/>
@@ -1016,7 +1016,7 @@ body {
     <div class="aurora-blob aurora-3"></div>
   </div>
     <!-- Music player (place music.mp3 in same folder as this HTML file) -->
-  <audio id="bg-music" loop preload="none">
+  <audio id="bg-music" loop preload="metadata">
     <source src="music.mp3" type="audio/mpeg"/>
   </audio>
   <button id="music-btn" aria-label="Toggle music">
@@ -1294,7 +1294,6 @@ function initMusic() {
         playing = true;
         btn.classList.add('playing');
         icon.textContent = '♫';
-        // Fade in
         audio.volume = 0;
         let v = 0;
         const fi = setInterval(() => {
@@ -1302,8 +1301,13 @@ function initMusic() {
           audio.volume = v;
           if (v >= 0.45) clearInterval(fi);
         }, 80);
-      }).catch(() => {
-        btn.title = 'music.mp3 not found';
+      }).catch(err => {
+        // Visible error — not silent
+        icon.textContent = '✗';
+        btn.style.borderColor = 'rgba(220,80,80,0.5)';
+        btn.style.color = 'rgba(220,120,120,0.8)';
+        btn.title = err.message;
+        playing = false;
       });
     } else {
       // Fade out then pause
