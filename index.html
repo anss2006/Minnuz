@@ -1965,86 +1965,152 @@ function initCandle() {
   scene.addEventListener('touchstart', e => { e.preventDefault(); blowOut(); }, {passive:false});
   scene.style.cursor = 'pointer';
 
-  // ── Mic button (must be user gesture on mobile) ──
+  // ── Mic button ─────────────────────────────────
+  // Guards:
+  //   micActive  — true once stream is running, blocks re-tapping
+  //   single volBar element tracked via volBarEl ref
+  let micActive = false;
+  let volBarEl  = null;
+
   micBtn.addEventListener('click', async () => {
-    if (blown) return;
+    // Block if already active, blown, or mid-connection
+    if (micActive || blown) return;
 
-    // 1. HTTPS check — getUserMedia is blocked on plain HTTP
-    if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-      micBtn.textContent  = '🎤 Needs HTTPS to work';
+    // HTTPS check
+    if (location.protocol !== 'https:'
+        && location.hostname !== 'localhost'
+        && location.hostname !== '127.0.0.1') {
+      micBtn.textContent  = '🎤 Needs HTTPS';
       micNote.textContent = 'tap the candle instead ↑';
       return;
     }
 
-    // 2. API availability check
+    // API check
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      micBtn.textContent  = '🎤 Not supported on this browser';
+      micBtn.textContent  = '🎤 Not supported here';
       micNote.textContent = 'tap the candle instead ↑';
       return;
     }
 
-    micBtn.textContent = '🎤 Connecting...';
-    micBtn.disabled    = true;
+    // Mark as connecting — disable immediately so rapid taps do nothing
+    micActive           = true;
+    micBtn.disabled     = true;
+    micBtn.textContent  = '🎤 Connecting...';
 
     try {
+      // AudioContext MUST be created synchronously inside user-gesture handler on iOS
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const ac = new AC();
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
 
-      // 3. FIX: AudioContext starts suspended on mobile — MUST resume() it
-      const AC  = window.AudioContext || window.webkitAudioContext;
-      const ac  = new AC();
-      await ac.resume(); // ← this is what was silently failing before
+      // Resume after stream obtained (iOS Safari requires this order)
+      if (ac.state === 'suspended') await ac.resume();
 
       const src  = ac.createMediaStreamSource(stream);
       const anal = ac.createAnalyser();
-      anal.fftSize        = 512;  // more resolution
-      anal.smoothingTimeConstant = 0.6;
+      // fftSize 1024 gives 512 bins — good resolution for breath detection
+      anal.fftSize               = 1024;
+      // Low smoothing = fast response — important for short blows
+      anal.smoothingTimeConstant = 0.3;
       src.connect(anal);
 
-      const buf        = new Uint8Array(anal.frequencyBinCount);
-      let   blowFrames = 0;
-      const THRESHOLD  = 28;  // lower = more sensitive (0-255 scale, avg of all freqs)
-      const FRAMES_REQ = 4;
+      const buf = new Uint8Array(anal.frequencyBinCount);
 
-      micBtn.textContent = '🎤 Mic live — blow now!';
-      micBtn.classList.add('mic-active');
-      micBtn.disabled    = false;
-      micNote.textContent = 'blow steadily toward mic · hold for ~1 second';
+      // Blow detection using RMS of LOW-MID frequencies (80–800 Hz)
+      // Blowing creates broadband noise heaviest in this range.
+      // RMS is far more reliable than simple average for breath detection.
+      const sampleRate  = ac.sampleRate;
+      const binHz       = sampleRate / anal.fftSize;
+      const lowBin      = Math.floor(80  / binHz);
+      const highBin     = Math.floor(800 / binHz);
 
-      // 4. Live volume bar so she can see it's picking up sound
-      const volBar = document.createElement('div');
-      volBar.style.cssText = `
-        width: 160px; height: 4px; border-radius: 2px;
-        background: rgba(255,255,255,0.08);
-        margin: 14px auto 0; overflow: hidden;
-        border: 1px solid rgba(212,96,122,0.2);
-      `;
+      // Calibrate: measure ambient noise for 600ms, set threshold above it
+      let   ambientRMS  = 0;
+      let   calibFrames = 0;
+      let   calibrating = true;
+      let   blowFrames  = 0;
+      // After calibration, threshold = ambientRMS * 2.8 (needs to be clearly louder than room)
+      // Minimum threshold ensures it works even in dead-silent rooms
+      const MIN_THRESHOLD = 12;
+      let   THRESHOLD     = MIN_THRESHOLD;
+      // Need 6 consecutive frames above threshold (~100ms at 60fps) — short but deliberate
+      const FRAMES_REQ    = 6;
+
+      micBtn.disabled     = false;
+      micBtn.textContent  = '🎤 Calibrating...';
+      micNote.textContent = 'stay quiet for a moment...';
+
+      // Create single volBar — stored in outer ref so no duplicates ever
+      volBarEl = document.createElement('div');
+      volBarEl.id = 'vol-bar-unique';
+      volBarEl.style.cssText = [
+        'width:180px', 'height:5px', 'border-radius:3px',
+        'background:rgba(255,255,255,0.07)',
+        'margin:14px auto 0', 'overflow:hidden',
+        'border:1px solid rgba(212,96,122,0.18)',
+        'transition:opacity 0.3s'
+      ].join(';');
       const volFill = document.createElement('div');
-      volFill.style.cssText = `
-        height: 100%; width: 0%; border-radius: 2px;
-        background: linear-gradient(to right, var(--gold), var(--rose));
-        transition: width 0.06s linear;
-      `;
-      volBar.appendChild(volFill);
-      micBtn.insertAdjacentElement('afterend', volBar);
+      volFill.style.cssText = [
+        'height:100%', 'width:0%', 'border-radius:3px',
+        'background:linear-gradient(to right,var(--gold),var(--rose))',
+        'transition:width 0.05s linear'
+      ].join(';');
+      volBarEl.appendChild(volFill);
+      micBtn.insertAdjacentElement('afterend', volBarEl);
+
+      function getRMS() {
+        anal.getByteFrequencyData(buf);
+        let sum = 0;
+        const count = highBin - lowBin;
+        for (let i = lowBin; i < highBin; i++) sum += buf[i] * buf[i];
+        return Math.sqrt(sum / count);
+      }
 
       (function checkBlow() {
         if (blown) {
           stream.getTracks().forEach(t => t.stop());
-          volBar.remove();
+          ac.close();
+          if (volBarEl) { volBarEl.remove(); volBarEl = null; }
           return;
         }
-        anal.getByteFrequencyData(buf);
-        const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
 
-        // Update live volume bar
-        volFill.style.width = Math.min(avg / 80 * 100, 100) + '%';
+        const rms = getRMS();
 
-        if (avg > THRESHOLD) {
+        // Phase 1: calibrate ambient for 600ms (~36 frames)
+        if (calibrating) {
+          ambientRMS   += rms;
+          calibFrames++;
+          if (calibFrames >= 36) {
+            ambientRMS  = ambientRMS / calibFrames;
+            THRESHOLD   = Math.max(MIN_THRESHOLD, ambientRMS * 2.8);
+            calibrating = false;
+            micBtn.textContent  = '🎤 Mic ready — blow gently!';
+            micBtn.classList.add('mic-active');
+            micNote.textContent = 'blow gently toward your mic';
+          }
+          requestAnimationFrame(checkBlow);
+          return;
+        }
+
+        // Phase 2: live detection
+        // Bar shows level relative to threshold so she can see exactly how hard she needs to blow
+        const pct = Math.min((rms / (THRESHOLD * 1.5)) * 100, 100);
+        volFill.style.width = pct + '%';
+
+        // Change bar color: gold below threshold, rose when above
+        volFill.style.background = rms > THRESHOLD
+          ? 'linear-gradient(to right,var(--rose),#ff6b9d)'
+          : 'linear-gradient(to right,var(--gold),var(--rose))';
+
+        if (rms > THRESHOLD) {
           blowingNow = true;
           blowFrames++;
           if (blowFrames >= FRAMES_REQ) {
-            volBar.remove();
+            if (volBarEl) { volBarEl.remove(); volBarEl = null; }
             blowOut();
+            return;
           }
         } else {
           blowingNow = false;
@@ -2054,7 +2120,10 @@ function initCandle() {
       })();
 
     } catch (err) {
+      micActive       = false;
       micBtn.disabled = false;
+      if (volBarEl)   { volBarEl.remove(); volBarEl = null; }
+
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         micBtn.textContent  = '🎤 Permission denied';
         micNote.textContent = 'allow mic in browser settings, or tap the candle ↑';
@@ -2062,8 +2131,9 @@ function initCandle() {
         micBtn.textContent  = '🎤 No mic found';
         micNote.textContent = 'tap the candle instead ↑';
       } else {
-        micBtn.textContent  = '🎤 Could not start mic';
+        micBtn.textContent  = '🎤 Try again';
         micNote.textContent = 'tap the candle instead ↑';
+        micActive = false; // allow retry on generic error
       }
     }
   });
